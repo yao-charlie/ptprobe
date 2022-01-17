@@ -2,7 +2,7 @@
 #include "displaymanager.h"
 #include "temperaturesensors.h"
 
-#define FW_VERSION_MINOR 1
+#define FW_VERSION_MINOR 2
 #define FW_VERSION_MAJOR 0
 
 // mode select push button on GPIO9
@@ -72,6 +72,7 @@ void setup()
 int led0 = 0;
 int led1 = 0;
 int update_adc_count = 0;
+int conversion_state = 0;
 
 void loop() 
 {
@@ -89,7 +90,98 @@ void loop()
     display.update_title("Pressure");
     display.update_status(pval2buf.c_str(), pval3buf.c_str());
     display.show();
-    update_adc_count = 0;
+    update_adc_count = -2000/50;
+    conversion_state = 0;
+  } else if (update_adc_count >= 0) {
+    if (conversion_state == 0) {
+      display.update_title("Temp. (C)");
+      display.update_status("reading...");
+      display.show();
+      probes_T.start_conversion();  // all
+      conversion_state = 1;
+    } else if (conversion_state == 1) {
+      if (probes_T.conversion_complete()) {
+         conversion_state = 2;
+      }
+    } else if (conversion_state == 2) {
+      String t0("0:"), t1("1:");
+
+      for (int i = 0; i < probes_T.sensor_count(); ++i) {
+        Serial.print("--- Temperature Channel ");
+        Serial.print(i);
+        Serial.println(" ---");
+        int8_t const result = probes_T.read_scratchpad(i);
+        if (result == 0) { // data ready
+          if (i == 0) {
+            t0 += String(probes_T.get_sensor(i)->probe_T_,1);
+          } else if (i == 1) {
+            t1+= String(probes_T.get_sensor(i)->probe_T_,1);
+          }
+
+          Serial.print("  T_probe = ");
+          Serial.println(probes_T.get_sensor(i)->probe_T_,2);
+          Serial.print("  T_ref = ");
+          Serial.println(probes_T.get_sensor(i)->ref_T_,2);
+          Serial.print("  ID = ");
+          Serial.println(probes_T.get_sensor(i)->id_,HEX);
+          Serial.print("  Address =");
+          for (int j = 0; j < 8; ++j) {
+            Serial.write(' ');
+            Serial.print(probes_T.get_sensor(i)->addr_[j],HEX);
+          }
+          Serial.println();
+          Serial.println();
+        } else if (result > 0) {
+           if (i == 0) {
+            t0 += "E";
+            t0 += String((int)(probes_T.get_sensor(i)->fault_status_));
+          } else if (i == 1) {
+            t1 += "E";
+            t1 += String((int)(probes_T.get_sensor(i)->fault_status_));
+          }
+          Serial.print("  Error = ");
+          Serial.println((int)(probes_T.get_sensor(i)->fault_status_));
+          Serial.print("  T_ref = ");
+          Serial.println(probes_T.get_sensor(i)->ref_T_,2);
+          Serial.print("  ID = ");
+          Serial.println(probes_T.get_sensor(i)->id_,HEX);
+          Serial.print("  Address =");
+          for (int j = 0; j < 8; ++j) {
+            Serial.write(' ');
+            Serial.print(probes_T.get_sensor(i)->addr_[j],HEX);
+          }
+          Serial.println();
+          Serial.println();
+        } else if (result < 0) {
+          Serial.print("  Error = ");
+          if (result == -1) {
+            Serial.println("ID out of range");
+            if (i == 0) {
+              t0 += "EID";
+            } else if (i == 1) {
+              t1 += "EID";
+            }
+          } else if (result == -2) {
+            Serial.println("CRC check failed");
+            if (i == 0) {
+              t0 += "ECRC";
+            } else if (i == 1) {
+              t1 += "ECRC";
+            }
+          } else {
+            Serial.println("Unknown");
+            if (i == 0) {
+              t0 += "EUNK";
+            } else if (i == 1) {
+              t1 += "EUNK";
+            }
+          }
+        }
+      }  // for each channel
+      display.update_status(t0.c_str(), t1.c_str());
+      display.show();
+      conversion_state = 3;
+    }
   }
   
   next_button.update();

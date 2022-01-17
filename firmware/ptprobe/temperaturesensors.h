@@ -26,6 +26,7 @@ public:
   void start_conversion(int device_id = -1);
   int8_t read_scratchpad(int device_id);
   bool conversion_complete(int device_id = -1);
+  int8_t sensor_count() const { return sensor_count_; }
 
   MAX31850 const* get_sensor(int device_id) const;
   
