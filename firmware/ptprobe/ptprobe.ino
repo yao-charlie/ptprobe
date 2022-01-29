@@ -73,6 +73,7 @@ int led0 = 0;
 int led1 = 0;
 int update_adc_count = 0;
 int conversion_state = 0;
+unsigned long start_ms = 0;
 
 void loop() 
 {
@@ -99,17 +100,21 @@ void loop()
       display.show();
       probes_T.start_conversion();  // all
       conversion_state = 1;
+      start_ms = millis();
     } else if (conversion_state == 1) {
       if (probes_T.conversion_complete()) {
          conversion_state = 2;
       }
     } else if (conversion_state == 2) {
       String t0("0:"), t1("1:");
-
+      unsigned long const tconv_ms = millis() - start_ms;
       for (int i = 0; i < probes_T.sensor_count(); ++i) {
         Serial.print("--- Temperature Channel ");
         Serial.print(i);
         Serial.println(" ---");
+        Serial.print("  Conversion time = ");
+        Serial.print(tconv_ms );
+        Serial.println("ms");
         int8_t const result = probes_T.read_scratchpad(i);
         if (result == 0) { // data ready
           if (i == 0) {

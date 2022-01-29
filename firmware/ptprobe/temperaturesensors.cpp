@@ -50,7 +50,7 @@ int8_t TemperatureSensors::read_scratchpad(int device_id)
   raw_ref_T >>=4;
 
   device_table_[device_id].probe_T_ = (float)raw_probe_T/4.0;
-  device_table_[device_id].ref_T_ = (float)raw_probe_T/16.0;
+  device_table_[device_id].ref_T_ = (float)raw_ref_T/16.0;
 
   device_table_[device_id].id_ = data[4] & 0x0F;
 
