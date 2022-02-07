@@ -1,5 +1,9 @@
 #include "temperaturesensors.h"
 
+int8_t const TemperatureSensors::ERROR_NDX_OUT_OF_RANGE = -3;
+int8_t const TemperatureSensors::ERROR_BUS_RESET = -2;
+int8_t const TemperatureSensors::ERROR_CRC_FAILED = -1;
+
 OneWire* TemperatureSensors::bus_ = nullptr;  // init static
 
 TemperatureSensors::TemperatureSensors(int const bus_pin) 
@@ -29,10 +33,10 @@ bool TemperatureSensors::start_conversion(int device_ndx /*= -1*/)
 int8_t TemperatureSensors::read_scratchpad(int device_ndx) 
 {
   if ((device_ndx < 0) || (device_ndx >= sensor_count_)) {
-    return -3;
+    return ERROR_NDX_OUT_OF_RANGE;
   }
   if (bus_->reset() == 0) {
-    return -2;
+    return ERROR_BUS_RESET;
   }
   bus_->select(device_table_[device_ndx].addr_);
   bus_->write(0xBE);
@@ -41,7 +45,7 @@ int8_t TemperatureSensors::read_scratchpad(int device_ndx)
   bus_->read_bytes(&data[0], 9);
   
   if (OneWire::crc8(data, 8) != data[8]) {
-    return -1;
+    return ERROR_CRC_FAILED;
   }
 
   int16_t raw_probe_T = (data[1] << 8) | data[0];
@@ -67,16 +71,6 @@ bool TemperatureSensors::conversion_complete(int device_ndx /*= -1*/)
   return static_cast<bool>(bus_->read_bit());
 }
 
-int TemperatureSensors::get_sensor_ndx(int const device_id) const
-{
-  for (int i = 0; i < sensor_count_; ++i) {
-    if (device_table_[i].id_ == device_id) {
-      return i;
-    }
-  }
-  return -1;
-}
-
 TemperatureSensors::MAX31850 const* TemperatureSensors::get_sensor(int const device_ndx) const
 {
   if (device_ndx < 0 || device_ndx >= sensor_count_) {
@@ -85,29 +79,12 @@ TemperatureSensors::MAX31850 const* TemperatureSensors::get_sensor(int const dev
   return &device_table_[device_ndx];
 }
 
-TemperatureSensors::MAX31850 const* TemperatureSensors::get_sensor_by_addr(int const device_id) const
-{
-  for (int i = 0; i < sensor_count_; ++i) {
-    if (device_table_[i].id_ == device_id) {
-      return &device_table_[i];
-    }
-  }
-  return nullptr;
-}
-
 void TemperatureSensors::begin() 
 {
   uint8_t addr[8];
 
   sensor_count_ = 0;
   while ((sensor_count_ < MAX_SENSOR_COUNT) && bus_->search(addr)) {
-    /*
-    Serial.print("ROM =");
-    for(int i = 0; i < 8; i++) {
-      Serial.write(' ');
-      Serial.print(addr[i], HEX);
-    }
-    */
     if (OneWire::crc8(addr, 7) != addr[7]) {
       Serial.println(" CRC is not valid!");
       continue;
@@ -116,7 +93,6 @@ void TemperatureSensors::begin()
       Serial.println(" Invalid sensor type (expecting 0x3B)");
       continue;
     }
-    //Serial.println();
 
     // add to address table
     for(int i = 0; i < 8; i++) {
@@ -143,5 +119,41 @@ void TemperatureSensors::begin()
       continue;
     }
     device_table_[device_ndx].id_ = data[4] & 0x0F;
+  }
+}
+
+
+char const* TemperatureSensors::error_short_label(int8_t fault_code)
+{
+  static char const OK[] = "OK";        // no fault
+  static char const EOC[] = "EOC";      // open circuit
+  static char const EGND[] = "EGND";    // ground short
+  static char const EVDD[] = "EVDD";    // VDD short
+  static char const ECRC[] = "ECRC";    // CRC failed
+  static char const ENC[] = "ENC";      // sensor not connected
+  static char const EUNK[] = "EUNK";    // unknown error
+
+  switch (fault_code) {
+  case 0:
+    return OK;
+    break;
+  case TemperatureSensors::MAX31850::OC:
+    return EOC;
+    break;
+  case TemperatureSensors::MAX31850::GND_SHORT:
+    return EGND;
+    break;
+  case TemperatureSensors::MAX31850::VDD_SHORT:
+    return EVDD;
+    break;
+  case TemperatureSensors::ERROR_CRC_FAILED:
+    return ECRC;
+    break;
+  case TemperatureSensors::ERROR_NDX_OUT_OF_RANGE:
+    return ENC;
+    break;
+  default:
+    return EUNK;
+    break;
   }
 }
