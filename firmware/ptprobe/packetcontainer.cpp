@@ -68,9 +68,9 @@ int8_t PacketContainer::write_resp(uint8_t resp_type, uint8_t ch, float val, int
 {
   buf[0] = (HDR_TYPE_RESP << 6) | (resp_type << 3) | (0x03 & ch) << 1 | (err == 0 ? 0x0 : 0x1);
   if (err != 0) {
-    *((int32_t*)&buf[1]) = err;
+    write_to_buf(err,&buf[1]);
   } else {
-    *((float*)&buf[1]) = val;
+    write_to_buf(val,&buf[1]);
   }
   return 5;
 }
@@ -99,7 +99,7 @@ int8_t PacketContainer::write_status_P(int8_t const ch, PSensorData const& senso
   int8_t pos = 1;
   buf[pos++] = ch;
   for (int i = 0; i < 3; ++i) {
-    *((float*)buf[pos]) = sensor.ai[i];
+    write_to_buf(sensor.ai[i], &buf[pos]);
     pos += sizeof(float); 
   }
   return pos;

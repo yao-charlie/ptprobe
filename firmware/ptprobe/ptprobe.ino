@@ -6,8 +6,8 @@
 #include "sensordata.h"
 
 // objects
-Bounce next_button = Bounce();
-Bounce apply_button = Bounce();
+Bounce next_button;
+Bounce apply_button;
 DisplayManager display; // OLED Display
 PacketContainer packet;
 TemperatureSensors probes_T(ONE_WIRE_BUS);
@@ -214,14 +214,16 @@ void respond_ask_T(
   }
   if (T_sensor[ch].ndx < 0) {   // not connected
     if (cfg.debug_level < 1) {
-      packet.write_resp(response_type, ch, 0.0, TemperatureSensors::ERROR_NDX_OUT_OF_RANGE);
+      auto const len = packet.write_resp(response_type, ch, 0.0, TemperatureSensors::ERROR_NDX_OUT_OF_RANGE);
+      Serial.write(packet.buffer(), len);
     } else {
       Serial.println("not connected");
     }
   } else {
     float const val = response_type == RESP_TYPE_T ? T_sensor[ch].T : T_sensor[ch].Tref;
     if (cfg.debug_level < 1) {
-      packet.write_resp(response_type, ch, val, T_sensor[ch].fault);
+      auto const len = packet.write_resp(response_type, ch, val, T_sensor[ch].fault);
+      Serial.write(packet.buffer(), len);
     } else if (T_sensor[ch].fault == 0) {
       Serial.println(val);
     } else {
@@ -309,7 +311,7 @@ void process_serial_buffer(bool force_halt)
     } else if (data_in == 'C') {
       int const rlen = Serial.readBytesUntil('\n', msg_buffer, MSG_BUF_LEN-1);
       msg_buffer[rlen] = '\0'; 
-      if ((msg_buffer[0] == 'D') && (rlen > 2)) {  // debug level
+      if ((msg_buffer[0] == 'D') && (rlen > 1)) {  // debug level
         int8_t const dbg = msg_buffer[1] - '0';
         if (dbg >= 0 && dbg < 3) {
           cfg.debug_level = dbg;

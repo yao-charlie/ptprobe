@@ -47,7 +47,7 @@ private:
   {
     uint8_t const* bvals = reinterpret_cast<uint8_t const*>(&v);
     for (int8_t i = 0; i < sizeof(T); ++i) {
-      *start++ = bvals[sizeof(T)-i];   // MSB first
+      *start++ = bvals[sizeof(T)-1-i];   // MSB first
     }
   }
 
