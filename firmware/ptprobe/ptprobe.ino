@@ -276,6 +276,7 @@ void process_serial_buffer(bool force_halt)
   if (force_halt || (data_in == 'H')) {
     if (cfg.started) {
       cfg.started = false;
+      cfg.conversion_state = 0;
 
       cfg.set_led0(LOW);
       if (cfg.debug_level > 0) {

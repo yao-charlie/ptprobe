@@ -102,7 +102,6 @@ class Controller:
                     raise BadHeader("Unexpected header type (data): 0x{:x}".format(hdr[0]))
                 
                 timestamp = struct.unpack('>I',ser.read(size=4))[0]
-                print(timestamp)
 
                 active_T = [False]*4
                 fault_T = [0]*4
