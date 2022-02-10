@@ -33,7 +33,7 @@ public:
   int8_t write_halt() 
   {
     buf[0] = HDR_TYPE_HALT << 6;
-    *((uint32_t*)&buf[1]) = count;
+    write_to_buf(count, &buf[1]);
     return 5;
   }
   int8_t write_status_T(int8_t ch, TSensorData const& sensor);

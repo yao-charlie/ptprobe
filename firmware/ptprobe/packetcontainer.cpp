@@ -33,7 +33,7 @@ int8_t PacketContainer::write_data(uint8_t nch_T, TSensorData const* Tdata, uint
   uint32_t const timestamp = millis();
   write_to_buf(timestamp, &buf[1]);
   for (uint8_t ich = 0; ich < nch_T; ++ich) {
-    if (Tdata[ich].ndx > 0) { 
+    if (Tdata[ich].ndx >= 0) { 
       if (Tdata[ich].fault == 0) {
         write_val(T_GROUP_BYTE,ich,Tdata[ich].T);
       } else {
@@ -50,7 +50,7 @@ int8_t PacketContainer::write_data(uint8_t nch_T, TSensorData const* Tdata, uint
 
   count++;
   
-  return 55;
+  return 56;
 }
 
 /*!

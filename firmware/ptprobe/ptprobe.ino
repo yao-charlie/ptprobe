@@ -221,8 +221,9 @@ void respond_ask_T(
     }
   } else {
     float const val = response_type == RESP_TYPE_T ? T_sensor[ch].T : T_sensor[ch].Tref;
+    int32_t const fault = response_type == RESP_TYPE_T || T_sensor[ch].fault < 0 ? T_sensor[ch].fault : 0;
     if (cfg.debug_level < 1) {
-      auto const len = packet.write_resp(response_type, ch, val, T_sensor[ch].fault);
+      auto const len = packet.write_resp(response_type, ch, val, fault);
       Serial.write(packet.buffer(), len);
     } else if (T_sensor[ch].fault == 0) {
       Serial.println(val);
@@ -247,7 +248,8 @@ void respond_ask_P(
 
   float const val = response_type == RESP_TYPE_P ? P_sensor[ch].P : P_sensor[ch].raw;
   if (cfg.debug_level < 1) {
-    packet.write_resp(response_type, ch, val, 0);
+    auto const len = packet.write_resp(response_type, ch, val, 0);
+    Serial.write(packet.buffer(), len);
   } else {
     Serial.println(val);
   }
