@@ -6,6 +6,7 @@
 #include "sensordata.h"
 
 // objects
+RunConfig cfg;
 Bounce next_button;
 Bounce apply_button;
 DisplayManager display; // OLED Display
@@ -13,6 +14,9 @@ PacketContainer packet;
 TemperatureSensors probes_T(ONE_WIRE_BUS);
 TSensorData T_sensor[4];
 PSensorData P_sensor[4];
+
+// this is a macro that defines a variable cfg_store
+FlashStorage(cfg_store, RunConfig::BoardConfig);
 
 // functions
 void process_serial_buffer();
@@ -43,6 +47,16 @@ void setup()
   Serial.begin(115200);
 
   delay(2000);
+
+  // load board config
+  cfg.board = cfg_store.read();
+  if (cfg.board.id != 0) {
+    for (int8_t ich = 0; ich < 4; ++ich) {
+      for (int8_t ii = 0; ii < 3; ++ii) {
+        P_sensor[ich].ai[ii] = cfg.board.ai_P[ii][ich];
+      }
+    }
+  }
 
   // Initialize temperature probes
   probes_T.begin();
@@ -104,7 +118,7 @@ void loop()
 
       auto const byte_count = packet.write_data(4,T_sensor,4,P_sensor);
       //Serial.println(byte_count);
-      if (cfg.debug_level < 1) {
+      if (cfg.board.debug_level < 1) {
         Serial.write(packet.buffer(), byte_count);
       }
       
@@ -139,13 +153,13 @@ void loop()
 
 void debug_print_config() 
 {
-  if (cfg.debug_level > 0) {
+  if (cfg.board.debug_level > 0) {
     Serial.println("Configuration updated");
     Serial.print("  + Debug level: ");
-    Serial.println(cfg.debug_level);
+    Serial.println(cfg.board.debug_level);
   
     Serial.print("  + Board ID: 0x");
-    Serial.println(cfg.board_id, HEX);
+    Serial.println(cfg.board.id, HEX);
     
     Serial.println("  + Pressure coefficients:");
     for (int i = 0; i < 4; ++i) {
@@ -204,7 +218,7 @@ void respond_ask_T(
   uint8_t response_type,
   int8_t const ch) 
 {
-  if (cfg.debug_level > 0) {
+  if (cfg.board.debug_level > 0) {
     Serial.print("T"); 
     if (response_type == RESP_TYPE_TREF) {
       Serial.print("ref");
@@ -213,7 +227,7 @@ void respond_ask_T(
     Serial.print(": ");
   }
   if (T_sensor[ch].ndx < 0) {   // not connected
-    if (cfg.debug_level < 1) {
+    if (cfg.board.debug_level < 1) {
       auto const len = packet.write_resp(response_type, ch, 0.0, TemperatureSensors::ERROR_NDX_OUT_OF_RANGE);
       Serial.write(packet.buffer(), len);
     } else {
@@ -222,7 +236,7 @@ void respond_ask_T(
   } else {
     float const val = response_type == RESP_TYPE_T ? T_sensor[ch].T : T_sensor[ch].Tref;
     int32_t const fault = response_type == RESP_TYPE_T || T_sensor[ch].fault < 0 ? T_sensor[ch].fault : 0;
-    if (cfg.debug_level < 1) {
+    if (cfg.board.debug_level < 1) {
       auto const len = packet.write_resp(response_type, ch, val, fault);
       Serial.write(packet.buffer(), len);
     } else if (T_sensor[ch].fault == 0) {
@@ -237,7 +251,7 @@ void respond_ask_P(
   uint8_t response_type,
   int8_t const ch) 
 {
-  if (cfg.debug_level > 0) {
+  if (cfg.board.debug_level > 0) {
     Serial.print("P"); 
     if (response_type == RESP_TYPE_ADC) {
       Serial.print("raw");
@@ -247,7 +261,7 @@ void respond_ask_P(
   }
 
   float const val = response_type == RESP_TYPE_P ? P_sensor[ch].P : P_sensor[ch].raw;
-  if (cfg.debug_level < 1) {
+  if (cfg.board.debug_level < 1) {
     auto const len = packet.write_resp(response_type, ch, val, 0);
     Serial.write(packet.buffer(), len);
   } else {
@@ -279,7 +293,7 @@ void process_serial_buffer(bool force_halt)
       cfg.conversion_state = 0;
 
       cfg.set_led0(LOW);
-      if (cfg.debug_level > 0) {
+      if (cfg.board.debug_level > 0) {
         Serial.println("Halting");
       } else {
         auto const pktlen = packet.write_halt();
@@ -291,9 +305,10 @@ void process_serial_buffer(bool force_halt)
     }
   } else if (!cfg.started) {
     if (data_in == 'R') {
-      int const rlen = Serial.readBytesUntil('\n', msg_buffer, MSG_BUF_LEN-1);
-      if (rlen > 0) {
-        int const cfg_val = atoi(&msg_buffer[0]);
+      char count_buf[4];
+      int const rlen = Serial.readBytes(count_buf, 4);
+      if (rlen == 4) {
+        auto const cfg_val = *reinterpret_cast<uint32_t*>(count_buf);
         packet.max_packets = cfg_val >= 0 ? cfg_val : 0;
       } else {
         packet.max_packets = 0;
@@ -306,24 +321,44 @@ void process_serial_buffer(bool force_halt)
       display.data_rect(3,0).update_lbl_lo("RUN",true);
       // display will update in loop
       
-      if (cfg.debug_level > 0) {
+      if (cfg.board.debug_level > 0) {
         Serial.print("Starting (");
         Serial.print(packet.max_packets);
         Serial.println(" samples)");
       }
     } else if (data_in == 'C') {
-      int const rlen = Serial.readBytesUntil('\n', msg_buffer, MSG_BUF_LEN-1);
-      msg_buffer[rlen] = '\0'; 
-      if ((msg_buffer[0] == 'D') && (rlen > 1)) {  // debug level
-        int8_t const dbg = msg_buffer[1] - '0';
+      char const cfg_opt = Serial.read();
+      if (cfg_opt == 'D') {   // debug level
+        int8_t const dbg = Serial.read();
         if (dbg >= 0 && dbg < 3) {
-          cfg.debug_level = dbg;
+          cfg.board.debug_level = dbg;
         }
-      } else if ((msg_buffer[0] == 'P') && (rlen > 4)) {
-        int8_t const P_ch = msg_buffer[1] - '0';
-        int8_t const icoeff = msg_buffer[2] - '0';
-        if ((P_ch >= 0) && (P_ch < 4) && (icoeff >=0) && (icoeff < 3)) {
-          P_sensor[P_ch].ai[icoeff] = atof(&msg_buffer[3]);
+      } else if (cfg_opt == 'P') {
+        int8_t const P_ch = Serial.read();
+        int8_t const icoeff = Serial.read();
+        char ai_buf[4];
+        auto const rlen = Serial.readBytes(ai_buf, 4);
+        if ((rlen == 4) && (P_ch >= 0) && (P_ch < 4) && (icoeff >=0) && (icoeff < 3)) {
+          auto const aval = *reinterpret_cast<float const*>(&ai_buf[0]);
+          P_sensor[P_ch].ai[icoeff] = aval;
+          cfg.board.ai_P[icoeff][P_ch] = aval;
+        }
+      } else if (cfg_opt == 'B') {
+        char id_buf[4];
+        auto const rlen = Serial.readBytes(id_buf, 4);
+        if (rlen == 4) {
+          cfg.board.id = *reinterpret_cast<uint32_t*>(&id_buf[0]);
+        }
+      } else if (cfg_opt == 'W') {
+        cfg.set_led1(LOW);
+        for (int itog = 0; itog < 3; ++itog) {
+          delay(100);
+          cfg.toggle_led1();
+        }
+        cfg_store.write(cfg.board);
+        for (int itog = 0; itog < 3; ++itog) {
+          delay(100);
+          cfg.toggle_led1();
         }
       }
       debug_print_config();
@@ -333,7 +368,7 @@ void process_serial_buffer(bool force_halt)
       if (rlen > 2) {
         if (msg_buffer[0] == 'S') {
           int const ch = msg_buffer[2] - '0';
-          if (cfg.debug_level == 0) {
+          if (cfg.board.debug_level == 0) {
             int8_t slen = 0;
             if (msg_buffer[1] == 'T') { // status on T probe
               slen = packet.write_status_T(ch, T_sensor[ch]);
@@ -368,11 +403,12 @@ void process_serial_buffer(bool force_halt)
         }  
       } else if (rlen == 1) {
         if (msg_buffer[0] == 'B') {
-          if (cfg.debug_level == 0) {
-            // TODO
+          if (cfg.board.debug_level == 0) {
+            auto const len = packet.write_resp_id(cfg.board.id);
+            Serial.write(packet.buffer(),len);
           } else {
             Serial.print("Board ID 0x");
-            Serial.println(cfg.board_id, HEX);
+            Serial.println(cfg.board.id, HEX);
           }
         }        
       }

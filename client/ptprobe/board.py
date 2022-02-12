@@ -37,9 +37,12 @@ class Controller:
     
     def board_id(self):
         with self.comm as ser:
-            ser.write(b'AB\n')    # ask board ID
-            buf = ser.read(size=5)
-            return struct.unpack('>I',buf[1:])[0]
+            ser.write(bytes('AB\n','utf-8'))    # ask board ID
+            hdr = ser.read(size=1)
+            err_bit = self._validate_resp_hdr(hdr, 0, self.ResponseType.ID)
+            if not err_bit:
+                return struct.unpack('>I',ser.read(size=4))[0]
+        return 0
 
     def temperature(self, ch):
         return self._ask_resp('T',ch,self.ResponseType.T)
@@ -56,7 +59,7 @@ class Controller:
     def sensor_status_T(self, ch):
         status = {"channel":-1, "fault":0, "address":b'\x00'*8}
         with self.comm as ser:
-            ser.write(bytes("AST{}".format(ch),"utf-8"))
+            ser.write(bytes("AST{}\n".format(ch),"utf-8"))
             hdr = ser.read(size=1)
             err_bit = self._validate_resp_hdr(hdr, ch, self.ResponseType.STATUS_T)
 
@@ -74,7 +77,7 @@ class Controller:
     def sensor_status_P(self, ch):
         status = {"channel":-1, "ai":[0,0,0]}
         with self.comm as ser:
-            ser.write(bytes("ASP{}".format(ch),"utf-8"))
+            ser.write(bytes("ASP{}\n".format(ch),"utf-8"))
             hdr = ser.read(size=1)
             err_bit = self._validate_resp_hdr(hdr, ch, self.ResponseType.STATUS_P)
 
@@ -89,7 +92,8 @@ class Controller:
     def run(self, num_samples):
         data = []
         with self.comm as ser:
-            ser.write(bytes("R{}".format(num_samples),"utf-8"))
+            ser.write(bytes("R","utf-8"))
+            ser.write(struct.pack('<I',num_samples))
             while len(data) <= num_samples:
                 hdr = ser.read(size=1)
                 if (hdr[0] & 0xC0) >> 6 == self.PacketType.DATA:
@@ -135,12 +139,35 @@ class Controller:
 
         return (-1, data)
 
-
-
     def set_debug_level(self, lvl):
+        ilvl = int(lvl)
+        if ilvl < 0 or ilvl > 2:
+            raise ValueError("Debug level out of range")
         with self.comm as ser:
-            msg = "CD{}\n".format(lvl)
-            ser.write(bytes(msg,'utf-8'))
+            ser.write(bytes("CD",'utf-8'))
+            ser.write(struct.pack('<b',ilvl))
+
+    def set_P_poly_coeffs(self, ch, ai):
+        ich = self._validate_ch(ch)
+        if len(ai) > 3:
+            raise ValueError("Polynomial coefficient array size exceeded")
+        with self.comm as ser:
+            for ii, a in enumerate(ai):
+                ser.write(bytes("CP","utf-8"))
+                ser.write(struct.pack('<b',ich))
+                ser.write(struct.pack('<b',ii))
+                ser.write(struct.pack('<f',a))
+    
+    def set_board_id(self, board_id):
+        with self.comm as ser:
+            ser.write(bytes("CB","utf-8"))
+            ser.write(struct.pack('<I',board_id))
+
+    def store_board_config(self, confirm):
+        if not confirm:
+            raise ValueError("Confirmation must be supplied to write board config to flash")
+        with self.comm as ser:
+            ser.write(bytes("CW","utf-8"))
 
     def _ask_resp(self,lbl,ch,resp_type):
         with self.comm as ser:
@@ -162,3 +189,9 @@ class Controller:
             raise BadHeader("Channel {} mismatch): 0x{:x}".format(ch, hdr[0]))
 
         return (hdr[0] & 0x01) != 0
+
+    def _validate_ch(self, ch):
+        ich = int(ch)
+        if ich < 0 or ich > 3:
+            raise ValueError("Channel ID out of range")
+        return ich

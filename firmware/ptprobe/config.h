@@ -4,7 +4,7 @@
 #include <Arduino.h>
 #include <FlashStorage.h>
 
-#define FW_VERSION_MINOR 5
+#define FW_VERSION_MINOR 6
 #define FW_VERSION_MAJOR 0
 
 #ifdef BREADBOARD_PROTO
@@ -45,9 +45,25 @@
 
 struct RunConfig
 {
+
+  struct BoardConfig
+  {
+    BoardConfig() : id(0), debug_level(0)
+    {
+      for (int8_t ip = 0; ip < 4; ++ip) {
+        for (int8_t ii = 0; ii < 3; ++ii) {
+          ai_P[ii][ip] = 0.;
+        }
+      }
+    }
+    uint32_t id;
+    int8_t debug_level;
+    float ai_P[3][4];
+  };
+  
   RunConfig() 
     : started(false), led0(0), led1(0), 
-      conversion_state(0), debug_level(1), board_id(0) 
+      conversion_state(0)
   {
   
   }
@@ -72,7 +88,7 @@ struct RunConfig
 
   void report_fault(char const* msg) {
     set_led1(HIGH);
-    if (debug_level > 0) {
+    if (board.debug_level > 0) {
       Serial.println(msg);
     }
   }
@@ -82,11 +98,11 @@ struct RunConfig
   int8_t led1;
   int conversion_state; // 0=idle, 1=conversion, 2=ready, 3=stop
 
-  int8_t debug_level;
-  uint32_t board_id;
+  BoardConfig board;
+
+
 };
 
-static RunConfig cfg;
 
 
 

@@ -29,6 +29,11 @@ public:
   uint8_t const* buffer() const { return &buf[0]; }
 
   int8_t write_data(uint8_t nch_T, TSensorData const* Tdata, uint8_t nch_P, PSensorData const* Pdata);
+  int8_t write_resp_id(uint32_t id) {
+    buf[0] = (HDR_TYPE_RESP << 6) | (RESP_TYPE_ID << 3);
+    write_to_buf(id, &buf[1]);
+    return 5;
+  }
   int8_t write_resp(uint8_t resp_type, uint8_t ch, float val, int32_t err = 0);
   int8_t write_halt() 
   {
