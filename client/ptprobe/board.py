@@ -30,7 +30,7 @@ class Controller:
         STATUS_T = 0b110
         STATUS_P = 0b111
 
-    def __init__(self, port, baudrate=115200):
+    def __init__(self, port, baudrate=115200, sinks=[]):
         """Construct a Controller with a specified port
 
         :param port: The serial port
@@ -42,6 +42,8 @@ class Controller:
         self.comm = serial.Serial()
         self.comm.port = port
         self.comm.baudrate = baudrate
+        self.user_halt = False
+        self.sinks = sinks
     
     def board_id(self):
         """Get the ID of the connected board
@@ -124,7 +126,6 @@ class Controller:
     def sensor_status_P(self, ch):
         """Request a pressure sensor ADC status report
 
-
         :param ch: The channel (0-3)
         :type ch: int
         :returns: The pressure sensor ADC status as a map including
@@ -146,37 +147,45 @@ class Controller:
                 status["ai"] = [struct.unpack('>f',body[4*i:4*(i+1)])[0] for i in range(3)]
         return status
 
-    def run(self, num_samples):
+    def stop_collection(self):
+        """Request a stop of the collection of samples."""
+        self.user_halt = True
+
+    def collect_samples(self, max_samples=0):
         """Start the free-running collection of temperature and pressure samples
 
-        :param num_samples: The maximum number of samples to collect. The sample
-            rate for the board is approximately 5Hz.
-        :type num_samples: int
-        :returns: A tuple (number of samples, sample data)
+        :param max_samples: The maximum number of samples to collect. Set to zero
+            for free-running collection. The sample rate for the board is approximately 5Hz.
+        :type max_samples: int
 
-        The sample data is stored as a list. Each entry in the list is composed of
+        The sample data is stored as a list. Each sample is composed of
             - a timestamp (ms)
             - active flag for each thermocouple (boolean*4)
             - fault code for each thermocouple (int*4)
             - thermocouple temperature by channel (float*4), 0 if fault code is set
             - cold-junction reference temperature by channel (float*4)
             - converted pressure by channel (float*4)
+        
+        Collected samples are written to the sink(s).
         """
-        data = []
+        sample_count = 0
         with self.comm as ser:
             ser.write(bytes("R","utf-8"))
-            ser.write(struct.pack('<I',num_samples))
-            while len(data) <= num_samples:
+            ser.write(struct.pack('<I',max_samples))
+            while not (self.user_halt 
+                    or (max_samples > 0 and sample_count >= max_samples)):
+
                 hdr = ser.read(size=1)
                 if (hdr[0] & 0xC0) >> 6 == self.PacketType.DATA:
                     if hdr[0] & 0x3F != 55: # byte count
                         raise BadHeader("Unexpected byte count (data): 0x{:x}".format(hdr[0]))
                 elif (hdr[0] & 0xC0) >> 6 == self.PacketType.HALT:
-                    count = struct.unpack('>I',ser.read(size=4))[0]
-                    return (count, data)
+                    sample_count = struct.unpack('>I',ser.read(size=4))[0]
+                    break
                 else:
                     raise BadHeader("Unexpected header type (data): 0x{:x}".format(hdr[0]))
                 
+                sample_count += 1
                 timestamp = struct.unpack('>I',ser.read(size=4))[0]
 
                 active_T = [False]*4
@@ -206,10 +215,15 @@ class Controller:
                     val = ser.read(size=4)
                     if tr_hdr[0] & (1 << (ich+4)):   # active
                         ref_temperature[ich] = struct.unpack('>f',val)[0]
+                
+                for sink in self.sinks:
+                    sink.write([timestamp, active_T, fault_T, temperature, ref_temperature, pressure])
+        
+            if self.user_halt:
+                ser.write(bytes("H","utf-8"))
+                self.user_halt = False
 
-                data.append([timestamp, active_T, fault_T, temperature, ref_temperature, pressure])
-
-        return (-1, data)
+        return sample_count
 
     def set_debug_level(self, lvl):
         """Set the board debug level.
