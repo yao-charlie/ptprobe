@@ -1,5 +1,5 @@
 import sys
-sys.path.append('../ptprobe')
+sys.path.append('../src/ptprobe')
 
 import argparse
 import board
