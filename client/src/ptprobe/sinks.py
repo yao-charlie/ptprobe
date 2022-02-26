@@ -1,3 +1,6 @@
+from influxdb_client import InfluxDBClient, Point, WritePrecision
+from influxdb_client.client.write_api import SYNCHRONOUS
+from datetime import datetime
 
 class SampleSink:
     """The abstract base class for sinks to record streaming sample data"""
@@ -41,4 +44,45 @@ class ListSampleSink (SampleSink):
 
     def write(self, sample):
         self.data.append(sample)
+
+class InfluxDBSampleSink (SampleSink):
+    """Write sample data to InfluxDB Cloud"""
+
+    def __init__(self, token, org, bucket):
+        self.client = None
+        self.token = token
+        self.org = org
+        self.bucket = bucket
+        self.board_id = 0
+
+    def set_board_id(self, id):
+        self.board_id = id
+
+    def open(self):
+        self.client = InfluxDBClient(
+                url="https://us-west-2-1.aws.cloud2.influxdata.com",
+                token=self.token,
+                org=self.org)
+
+    def close(self):
+        if self.client is not None:
+            self.client.close()
+
+    def write(self, sample):
+        if self.client is None:
+            raise RuntimeError("No sink initialized for write")
+
+        write_api = self.client.write_api(write_options=SYNCHRONOUS)
+
+        pt = Point("board").tag("board_id", self.board_id)
+        for ich in range(4):
+            pt.field("T{}".format(ich), sample[3][ich])
+            pt.field("Tref{}".format(ich), sample[4][ich])
+            pt.field("P{}".format(ich), sample[5][ich])
+            pt.field("Tfault{}".format(ich), sample[2][ich])
+        pt.time(datetime.utcnow(), WritePrecision.MS)
+        #pt.time(sample[0], WritePrecision.MS)
+
+        write_api.write(self.bucket, self.org, pt)
+        
 
