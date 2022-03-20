@@ -27,6 +27,8 @@ void update_P_display(int const ich);
 char msg_buffer[MSG_BUF_LEN];
 void process_serial_buffer(bool force_halt);
 
+void (*reset_board)(void) = 0;  // software reset the board
+
 void setup() 
 {
   // ADC setup
@@ -53,7 +55,7 @@ void setup()
   if (cfg.board.id != 0) {
     for (int8_t ich = 0; ich < 4; ++ich) {
       for (int8_t ii = 0; ii < 3; ++ii) {
-        P_sensor[ich].ai[ii] = cfg.board.ai_P[ii][ich];
+        P_sensor[ich].ai[ii] = cfg.board.get_ai(ii, ich);
       }
     }
   }
@@ -80,6 +82,7 @@ void setup()
     delay(400);
   }
   digitalWrite(STATUS1_PIN, LOW);
+
 
   // Reset data display
   display.clear_all();
@@ -284,10 +287,13 @@ void respond_ask_P(
 //  A# : raw ADC value for pressure channel # , returns ACK | RAW_P_TYPE | 32 bit float 
 //  P# : pressure from channel # , returns ACK | PROBE_P_TYPE | 32 bit float 
 //  S[T|P]# : status/configuration on sensor
+// Z : reset the board
 void process_serial_buffer(bool force_halt)
 {
   char const data_in = Serial.read();
-  if (force_halt || (data_in == 'H')) {
+  if (data_in == 'Z') {
+    NVIC_SystemReset();
+  } else if (force_halt || (data_in == 'H')) {
     if (cfg.started) {
       cfg.started = false;
       cfg.conversion_state = 0;
@@ -341,7 +347,7 @@ void process_serial_buffer(bool force_halt)
         if ((rlen == 4) && (P_ch >= 0) && (P_ch < 4) && (icoeff >=0) && (icoeff < 3)) {
           auto const aval = *reinterpret_cast<float const*>(&ai_buf[0]);
           P_sensor[P_ch].ai[icoeff] = aval;
-          cfg.board.ai_P[icoeff][P_ch] = aval;
+          cfg.board.set_ai(icoeff, P_ch, aval);
         }
       } else if (cfg_opt == 'B') {
         char id_buf[4];

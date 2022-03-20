@@ -170,8 +170,8 @@ class Controller:
         """
         sample_count = 0
         with self.comm as ser:
-            ser.write(bytes("R","utf-8"))
-            ser.write(struct.pack('<I',max_samples))
+            msg = bytes("R","utf-8")+ struct.pack('<I',max_samples)
+            ser.write(msg)
             while not (self.user_halt 
                     or (max_samples > 0 and sample_count >= max_samples)):
 
@@ -238,8 +238,8 @@ class Controller:
         if ilvl < 0 or ilvl > 2:
             raise ValueError("Debug level out of range")
         with self.comm as ser:
-            ser.write(bytes("CD",'utf-8'))
-            ser.write(struct.pack('<b',ilvl))
+            msg = bytes("CD",'utf-8')+struct.pack('<b',ilvl)
+            ser.write(msg)
 
     def set_P_poly_coeffs(self, ch, ai):
         """Set the polynomial coefficients for the pressure conversion on a channel
@@ -261,10 +261,8 @@ class Controller:
             raise ValueError("Polynomial coefficient array size exceeded")
         with self.comm as ser:
             for ii, a in enumerate(ai):
-                ser.write(bytes("CP","utf-8"))
-                ser.write(struct.pack('<b',ich))
-                ser.write(struct.pack('<b',ii))
-                ser.write(struct.pack('<f',a))
+                msg = bytes("CP","utf-8")+bytearray([ich,ii])+struct.pack('<f',a)
+                ser.write(msg)
     
     def set_board_id(self, board_id):
         """Set the board identifier
@@ -277,8 +275,8 @@ class Controller:
             to Flash storage such that it will persist if the board is reset.
         """
         with self.comm as ser:
-            ser.write(bytes("CB","utf-8"))
-            ser.write(struct.pack('<I',board_id))
+            msg = bytes("CB","utf-8")+struct.pack('<I',board_id)
+            ser.write(msg)
 
     def store_board_config(self, confirm):
         """Store the current configuration (board ID, debug level, polynomial coefficients) to Flash
@@ -295,6 +293,11 @@ class Controller:
             raise ValueError("Confirmation must be supplied to write board config to flash")
         with self.comm as ser:
             ser.write(bytes("CW","utf-8"))
+
+    def reset_board(self):
+        """Trigger a software reset of the board"""
+        with self.comm as ser:
+            ser.write(bytes("Z","utf-8"))
 
     def _ask_resp(self,lbl,ch,resp_type):
         """[Internal] Send a packet asking for a response (T, ref T, P, etc.)

@@ -4,7 +4,7 @@
 #include <Arduino.h>
 #include <FlashStorage.h>
 
-#define FW_VERSION_MINOR 6
+#define FW_VERSION_MINOR 7
 #define FW_VERSION_MAJOR 0
 
 #ifdef BREADBOARD_PROTO
@@ -52,13 +52,17 @@ struct RunConfig
     {
       for (int8_t ip = 0; ip < 4; ++ip) {
         for (int8_t ii = 0; ii < 3; ++ii) {
-          ai_P[ii][ip] = 0.;
+          ai_P[ii + ip*3] = 0.;
         }
       }
     }
+
+    float get_ai(int i, int ich) { return ai_P[i + 3*ich]; }
+    void set_ai(int i, int ich, float a) { ai_P[i + 3*ich] = a; }
+    
     uint32_t id;
     int8_t debug_level;
-    float ai_P[3][4];
+    float ai_P[12];
   };
   
   RunConfig() 
