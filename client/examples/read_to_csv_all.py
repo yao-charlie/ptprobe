@@ -9,8 +9,10 @@ import argparse
 import board
 from sinks import CsvSampleSink
 
-
+#Add COM ports of boards here:
 ports = ["COM1", "COM2"]
+
+#No action:
 boards = []
 sinks = []
 
@@ -38,7 +40,7 @@ if __name__ == "__main__":
 
 
     for item in range(len(ports)):
-        sinks[item] = CsvSampleSink("{}-{}".format(ports[item], datetime.datetime))
+        sinks[item] = CsvSampleSink("{}-{}".format(ports[item], datetime.datetime.now()))
         boards[item] = board.Controller(ports=ports[item], sinks=[sinks[item]])
 
     pt = board.Controller(port=args.port, sinks=[csv])
