@@ -37,10 +37,10 @@ if __name__ == "__main__":
     csv = CsvSampleSink(args.filename)
     csv.open()
     
-
+    currentDT = datetime.datetime.now()
 
     for item in range(len(ports)):
-        sinks[item] = CsvSampleSink("{}-{}".format(ports[item], datetime.datetime.now()))
+        sinks[item] = CsvSampleSink("{}_{}-{}-{}_{}-{}-{}".format(ports[item], currentDT.year, currentDT.month, currentDT.day, currentDT.hour, currentDT.minute, currentDT.second))
         boards[item] = board.Controller(ports=ports[item], sinks=[sinks[item]])
 
     pt = board.Controller(port=args.port, sinks=[csv])
