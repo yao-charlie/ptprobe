@@ -8,6 +8,9 @@ import argparse
 import board
 from sinks import CsvSampleSink
 
+boards = []
+sinks = []
+
 if __name__ == "__main__":
     format = "%(asctime)s: %(message)s"
     logging.basicConfig(format=format, level=logging.INFO, datefmt="%H:%M:%S")
@@ -17,8 +20,8 @@ if __name__ == "__main__":
             help='Maximum number of samples to record. Default 0 (no maximum)')
     parser.add_argument('-t','--timeout', type=int, default=0,  
             help='Collection time for sampling (s). Default is 0 (no timeout). The nominal sample rate is 5Hz.')
-    parser.add_argument('-p', '--port', default='/dev/ttyACM0',  
-            help='Serial port name. Default is /dev/ttyACM0.')
+    parser.add_argument('-p', '--ports', default='/dev/ttyACM0',  nargs='+',
+            help='Serial port name(s). Default is /dev/ttyACM0.')
     parser.add_argument('filename', help='CSV file for data output')
     args = parser.parse_args()
 
@@ -29,7 +32,11 @@ if __name__ == "__main__":
     csv = CsvSampleSink(args.filename)
     csv.open()
     
-    pt = board.Controller(port=args.port, sinks=[csv])
+    for item in ports:
+        sinks.append(CsvSampleSink("{}-{}".format(ports[item], datetime.datetime)))
+        boards.append(board.Controller(ports=ports[item], sinks=[sinks[item]]))
+
+    pt = board.Controller(port=args.ports, sinks=[csv])
     logging.info("Board ID: {}".format(pt.board_id()))
 
     logging.info("Main: creating thread")
