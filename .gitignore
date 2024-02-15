@@ -1,6 +1,10 @@
 # Generated Data Files
 *.csv
 
+#Security
+security/
+client/examples/proto/
+
 # Prerequisites
 *.d
 
