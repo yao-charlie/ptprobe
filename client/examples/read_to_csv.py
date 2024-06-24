@@ -36,8 +36,8 @@ if __name__ == "__main__":
     for index, item in enumerate(args.ports):
         logging.info("Creating sink for {}".format(item))
         port_label = item.split('/')[-1] 
-        sink_name = '_'.join(port_label)
-        sinks.append(CsvSampleSink("{}-{}-{}.{}".format(prefix, sink_name, datetime.now().strftime("%Y-%m-%d_%Hh-%Mm-%Ss")), extension))
+        sink_name = ''.join(port_label)
+        sinks.append(CsvSampleSink("{}-{}-{}{}".format(prefix, sink_name, datetime.now().strftime("%Y-%m-%d_%Hh-%Mm-%Ss"), extension)))
         sinks[index].open()
 
 
