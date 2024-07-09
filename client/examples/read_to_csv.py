@@ -2,6 +2,8 @@ import sys
 sys.path.append('../src/ptprobe')
 import os
 from datetime import datetime
+import signal
+import keyboard
 
 import logging
 import threading
@@ -14,7 +16,12 @@ boards = []
 sinks = []
 threads = []
 
-if __name__ == "__main__":
+def signal_handler(signal, frame):
+    print('You pressed Ctrl+C!')
+    sys.exit(0)
+
+
+def main():
     format = "%(asctime)s: %(message)s"
     logging.basicConfig(format=format, level=logging.INFO, datefmt="%H:%M:%S")
     
@@ -60,11 +67,17 @@ if __name__ == "__main__":
     if args.timeout > 0:
         timer.start()
 
+    # signal.signal(signal.SIGINT, signal_handler)
+    # print('Press Ctrl+C to stop')
+    # forever = threading.Event()
+    # forever.wait()
     heartbeat = 0
     while any(list(map(lambda thread:thread.is_alive(), threads))):
         heartbeat += 1
         logging.info("..{}".format(heartbeat))
         time.sleep(1.)
+        if keyboard.is_pressed('q'):
+            break
 
     # here either the timer expired and called halt or we processed 
     # max_steps messages and exited
@@ -83,6 +96,8 @@ if __name__ == "__main__":
     logging.info("Main: done")
 
 
-
-
-
+if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt:
+        pass
