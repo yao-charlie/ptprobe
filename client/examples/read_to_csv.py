@@ -2,8 +2,7 @@ import sys
 sys.path.append('../src/ptprobe')
 import os
 from datetime import datetime
-import signal
-import keyboard
+import operator
 
 import logging
 import threading
@@ -12,16 +11,25 @@ import argparse
 import board
 from sinks import CsvSampleSink
 
+#Google Sheets imports:
+from google.auth.transport.requests import Request
+from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
+from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
+SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
+
+
+#TODO: auto create graphs?
+#TODO: add modulo
+#TODO: add fields arguments
+
 boards = []
 sinks = []
 threads = []
 
-def signal_handler(signal, frame):
-    print('You pressed Ctrl+C!')
-    sys.exit(0)
+if __name__ == "__main__":
 
-
-def main():
     format = "%(asctime)s: %(message)s"
     logging.basicConfig(format=format, level=logging.INFO, datefmt="%H:%M:%S")
     
@@ -33,7 +41,44 @@ def main():
     parser.add_argument('-p', '--ports', default='/dev/ttyACM0',  nargs='+',
             help='Serial port name(s). Default is /dev/ttyACM0.')
     parser.add_argument('-f', '--filename', default='', help='Prefix filename for CSV file data output with extension as specified')
+    parser.add_argument('-g', '--gsheets_ID', default='', help='Google Sheets UUID link.')
+    parser.add_argument('-n', '--newGSheetTabs', default='', help='Flag to generate new Google Sheets Tabs on first creation of sheet.')
+    parser.add_argument('-w', '--sampleWindow', default='', help='How many samples to window in GSheets')
+
+
     args = parser.parse_args()
+
+    #Google sheets authentication:
+
+    if args.gsheets_ID:
+        SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
+
+        creds = None
+        # The file token.json stores the user's access and refresh tokens, and is
+        # created automatically when the authorization flow completes for the first
+        # time.
+        if os.path.exists("token.json"):
+            creds = Credentials.from_authorized_user_file("token.json", SCOPES)
+        # If there are no (valid) credentials available, let the user log in.
+        if not creds or not creds.valid:
+            if creds and creds.expired and creds.refresh_token:
+                creds.refresh(Request())
+            else:
+                flow = InstalledAppFlow.from_client_secrets_file(
+                    "..\..\security\credentials_OAuth2.json", 
+                    SCOPES
+                )
+                creds = flow.run_local_server(port=0)
+            # Save the credentials for the next run
+            with open("token.json", "w") as token:
+                token.write(creds.to_json())
+
+        try:
+            service = build("sheets", "v4", credentials=creds)
+            # Call the Sheets API
+            sheet = service.spreadsheets()
+        except HttpError as err:
+            print(err)
 
     logging.info("Starting demo")
     logging.info(args)
@@ -42,7 +87,6 @@ def main():
 
     for index, item in enumerate(args.ports):
         logging.info("Creating sink for {}".format(item))
-
         port_label = item.split('/')[-1] 
         sink_name = ''.join(port_label)
         sinks.append(CsvSampleSink("{}-{}-{}{}".format(prefix, sink_name, datetime.now().strftime("%Y-%m-%d_%Hh-%Mm-%Ss"), extension)))
@@ -56,10 +100,51 @@ def main():
 
     logging.info("Main: creating threads")
 
-    for index, item in enumerate(args.ports):
-        threads.append(threading.Thread(target=boards[index].collect_samples, args=(args.max_count,)))
-        logging.info("Creating thread for {}".format(item))
-        threads[index].start()
+    if args.gsheets_ID:
+        for index, item in enumerate(args.ports):
+
+            #Create all the new tabs
+
+            if args.newGSheetTabs:
+                try:
+                    result = (
+                    sheet.batchUpdate(
+                        spreadsheetId=args.gsheets_ID, 
+                        body = {
+                        'requests': [{
+                            'addSheet': {
+                                'properties': {
+                                    'title': item,
+                                }
+                            }
+                        }]
+                    }
+                        )
+                        .execute()
+                    )
+                except HttpError as err:
+                    print(err)
+                finally:
+                    time.sleep(1.) #Google Sheets DDOS limits
+                #Comment this out re-running with existing tabs.
+
+            threads.append(threading.Thread(
+                target=boards[index].collect_samples, 
+                args=(args.max_count,),
+                kwargs={
+                    'gSheetsLink': args.gsheets_ID,
+                    'sheet': item,
+                    'modulo': args.sampleWindow
+                    },
+                ))
+            logging.info("Creating thread for {}".format(item))
+            threads[index].start()
+
+    else:
+        for index, item in enumerate(args.ports):
+            threads.append(threading.Thread(target=boards[index].collect_samples, args=(args.max_count,)))
+            logging.info("Creating thread for {}".format(item))
+            threads[index].start()
 
 
     stop_collection_lambda = lambda: list(map(lambda board: board.stop_collection(), boards))
@@ -68,17 +153,11 @@ def main():
     if args.timeout > 0:
         timer.start()
 
-    # signal.signal(signal.SIGINT, signal_handler)
-    # print('Press Ctrl+C to stop')
-    # forever = threading.Event()
-    # forever.wait()
     heartbeat = 0
     while any(list(map(lambda thread:thread.is_alive(), threads))):
         heartbeat += 1
         logging.info("..{}".format(heartbeat))
         time.sleep(1.)
-        if keyboard.is_pressed('q'):
-            break
 
     # here either the timer expired and called halt or we processed 
     # max_steps messages and exited
@@ -97,8 +176,6 @@ def main():
     logging.info("Main: done")
 
 
-if __name__ == "__main__":
-    try:
-        main()
-    except KeyboardInterrupt:
-        pass
+
+
+

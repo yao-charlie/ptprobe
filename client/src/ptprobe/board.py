@@ -1,5 +1,8 @@
 import serial
 import struct
+import datetime
+
+from googleapiclient.errors import HttpError
 
 class BadHeader(Exception):
     """An error in the packet header"""
@@ -151,7 +154,17 @@ class Controller:
         """Request a stop of the collection of samples."""
         self.user_halt = True
 
-    def collect_samples(self, max_samples=0):
+    def collect_samples(self, max_samples=0, **kwargs):
+        # Google sheets args:
+        gSheetsLink = kwargs.get('gSheetsLink', None)
+        sheet = kwargs.get('sheet', None)
+        modulo = kwargs.get('modulo', 100)
+
+        #Google sheets DDOS restrictions:
+        if gSheetsLink and sheet:
+            PreviousTime = datetime.time
+            CurrentTime = datetime.time
+
         """Start the free-running collection of temperature and pressure samples
 
         :param max_samples: The maximum number of samples to collect. Set to zero
@@ -218,6 +231,39 @@ class Controller:
                 
                 for sink in self.sinks:
                     sink.write([timestamp, active_T, fault_T, temperature, ref_temperature, pressure])
+                    
+                    #write to Google Sheets:
+
+                    if gSheetsLink and sheet:
+                        CurrentTime = datetime.time
+                        row = 1
+                        #DDOS check to write at most once per second per sheets API restrictions:
+                        if datetime.timedelta(CurrentTime-PreviousTime).seconds:
+                            parsedRow =  f'{sheet}!A{row}:F{modulo+1}'
+                            try:
+                                result = (
+
+                                    sheet.batchUpdate(
+
+                                    )
+                                
+
+                                #Code for raw writing without modulo. Need to fix range if used.
+                                # sheet.values().append(
+                                #     spreadsheetId=gSheetsLink, 
+                                #     range = parsedRow,
+                                #     valueInputOption= 'RAW',
+                                #     body={
+                                #     'values': [[timestamp, active_T, fault_T, temperature, ref_temperature, pressure]]
+                                #     }
+                                #     )
+                                #     .execute()
+                                    
+
+                                )
+                                row = (row+1) % modulo
+                            except HttpError as err:
+                                print(err)
         
             if self.user_halt:
                 ser.write(bytes("H","utf-8"))
