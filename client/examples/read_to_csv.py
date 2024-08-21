@@ -14,26 +14,11 @@ boards = []
 sinks = []
 threads = []
 
-def main():
-    format = "%(asctime)s: %(message)s"
-    logging.basicConfig(format=format, level=logging.INFO, datefmt="%H:%M:%S")
-    
-    parser = argparse.ArgumentParser(description='Read PTProbe sensors over serial')
-    parser.add_argument('-m','--max-count', type=int, default=0,  
-            help='Maximum number of samples to record. Default 0 (no maximum)')
-    parser.add_argument('-t','--timeout', type=int, default=0,  
-            help='Collection time for sampling (s). Default is 0 (no timeout). The nominal sample rate is 5Hz.')
-    parser.add_argument('-p', '--ports', default='/dev/ttyACM0',  nargs='+',
-            help='Serial port name(s). Default is /dev/ttyACM0.')
-    parser.add_argument('-f', '--filename', default='', help='Prefix filename for CSV file data output with extension as specified')
-    args = parser.parse_args()
+def readToCSV(max_count, timeout, ports, filename):
 
-    logging.info("Starting demo")
-    logging.info(args)
+    (prefix, extension) = os.path.splitext(filename)  
 
-    (prefix, extension) = os.path.splitext(args.filename)  
-
-    for index, item in enumerate(args.ports):
+    for index, item in enumerate(ports):
         logging.info("Creating sink for {}".format(item))
 
         port_label = item.split('/')[-1] 
@@ -42,7 +27,7 @@ def main():
         sinks[index].open()
 
 
-    for index, item in enumerate(args.ports):
+    for index, item in enumerate(ports):
         boards.append(board.Controller(port=item, sinks=[sinks[index]]))
         logging.info("Board IDs: {}".format(boards[index].board_id()))
 
@@ -50,21 +35,20 @@ def main():
     logging.info("Main: creating threads")
 
     try:
-        for index, item in enumerate(args.ports):
-            threads.append(threading.Thread(target=boards[index].collect_samples, args=(args.max_count,)))
+        for index, item in enumerate(ports):
+            threads.append(threading.Thread(target=boards[index].collect_samples, args=(max_count,)))
             logging.info("Creating thread for {}".format(item))
             threads[index].daemon = True
             threads[index].start()
 
 
         stop_collection_lambda = lambda: list(map(lambda board: board.stop_collection(), boards))
-        timer = threading.Timer(args.timeout, stop_collection_lambda)
+        timer = threading.Timer(timeout, stop_collection_lambda)
 
-        if args.timeout > 0:
+        if timeout > 0:
             timer.start()
 
         heartbeat = 0
-
 
         while any(list(map(lambda thread:thread.is_alive(), threads))):
             heartbeat += 1
@@ -74,7 +58,7 @@ def main():
     except(KeyboardInterrupt, SystemExit):
         print("Keyboard Interrupted")
         stop_collection_lambda()
-        
+
     finally:
         # here either the timer expired and called halt or we processed 
         # max_steps messages and exited
@@ -94,5 +78,20 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    format = "%(asctime)s: %(message)s"
+    logging.basicConfig(format=format, level=logging.INFO, datefmt="%H:%M:%S")
+
+    parser = argparse.ArgumentParser(description='Read PTProbe sensors over serial')
+    parser.add_argument('-m','--max-count', type=int, default=0,  
+            help='Maximum number of samples to record. Default 0 (no maximum)')
+    parser.add_argument('-t','--timeout', type=int, default=0,  
+            help='Collection time for sampling (s). Default is 0 (no timeout). The nominal sample rate is 5Hz.')
+    parser.add_argument('-p', '--ports', default='/dev/ttyACM0',  nargs='+',
+            help='Serial port name(s). Default is /dev/ttyACM0.')
+    parser.add_argument('-f', '--filename', default='', help='Prefix filename for CSV file data output with extension as specified')
+    args = parser.parse_args()
+    logging.info("Starting demo")
+    logging.info(args)
+
+    readToCSV(args.max_count, args.timeout, args.ports, args.filename)
 
