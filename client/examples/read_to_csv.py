@@ -38,7 +38,6 @@ def readToCSV(max_count, timeout, ports, filename):
         for index, item in enumerate(ports):
             threads.append(threading.Thread(target=boards[index].collect_samples, args=(max_count,)))
             logging.info("Creating thread for {}".format(item))
-            threads[index].daemon = True
             threads[index].start()
 
 
