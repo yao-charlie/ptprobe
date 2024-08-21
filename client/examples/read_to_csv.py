@@ -2,8 +2,6 @@ import sys
 sys.path.append('../src/ptprobe')
 import os
 from datetime import datetime
-import signal
-import keyboard
 
 import logging
 import threading
@@ -15,11 +13,6 @@ from sinks import CsvSampleSink
 boards = []
 sinks = []
 threads = []
-
-def signal_handler(signal, frame):
-    print('You pressed Ctrl+C!')
-    sys.exit(0)
-
 
 def main():
     format = "%(asctime)s: %(message)s"
@@ -56,49 +49,50 @@ def main():
 
     logging.info("Main: creating threads")
 
-    for index, item in enumerate(args.ports):
-        threads.append(threading.Thread(target=boards[index].collect_samples, args=(args.max_count,)))
-        logging.info("Creating thread for {}".format(item))
-        threads[index].start()
+    try:
+        for index, item in enumerate(args.ports):
+            threads.append(threading.Thread(target=boards[index].collect_samples, args=(args.max_count,)))
+            logging.info("Creating thread for {}".format(item))
+            threads[index].daemon = True
+            threads[index].start()
 
 
-    stop_collection_lambda = lambda: list(map(lambda board: board.stop_collection(), boards))
-    timer = threading.Timer(args.timeout, stop_collection_lambda)
+        stop_collection_lambda = lambda: list(map(lambda board: board.stop_collection(), boards))
+        timer = threading.Timer(args.timeout, stop_collection_lambda)
 
-    if args.timeout > 0:
-        timer.start()
+        if args.timeout > 0:
+            timer.start()
 
-    # signal.signal(signal.SIGINT, signal_handler)
-    # print('Press Ctrl+C to stop')
-    # forever = threading.Event()
-    # forever.wait()
-    heartbeat = 0
-    while any(list(map(lambda thread:thread.is_alive(), threads))):
-        heartbeat += 1
-        logging.info("..{}".format(heartbeat))
-        time.sleep(1.)
-        if keyboard.is_pressed('q'):
-            break
+        heartbeat = 0
 
-    # here either the timer expired and called halt or we processed 
-    # max_steps messages and exited
-    logging.info("Main: cancel timer")
-    timer.cancel()
 
-    logging.info("Main: calling joins")
-    for thread in threads:
-        thread.join()
+        while any(list(map(lambda thread:thread.is_alive(), threads))):
+            heartbeat += 1
+            logging.info("..{}".format(heartbeat))
+            time.sleep(1.)
+
+    except(KeyboardInterrupt, SystemExit):
+        print("Keyboard Interrupted")
+        stop_collection_lambda()
         
-    logging.info("Main: closing sinks")
-    for sink in sinks:
-        sink.close()
-        
+    finally:
+        # here either the timer expired and called halt or we processed 
+        # max_steps messages and exited
+        logging.info("Main: cancel timer")
+        timer.cancel()
 
-    logging.info("Main: done")
+        logging.info("Main: calling joins")
+        for thread in threads:
+            thread.join()
+            
+        logging.info("Main: closing sinks")
+        for sink in sinks:
+            sink.close()
+            
+
+        logging.info("Main: done")
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except KeyboardInterrupt:
-        pass
+    main()
+
