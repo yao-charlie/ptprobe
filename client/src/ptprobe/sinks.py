@@ -32,9 +32,14 @@ class CsvSampleSink (SampleSink):
             self.hf.close()
         self.hf = None
 
-    def write(self, sample):
+    # def write(self, sample):
+    def write(self, sample, port = 0, queue = False):
         seps = [', ']*len(sample)
         seps[-1] = '\n'
+        # print(sample[4])
+        # queue.put([item, sample[4], sample[5]]
+        if queue.qsize()<2:
+            queue.put([port, sample])
         for v,s in zip(sample,seps):
             self.hf.write("{}{}".format(v,s).replace("[","").replace("]",""))
 
@@ -102,7 +107,7 @@ class SQLiteSampleSink (SampleSink):
         cursor.execute("CREATE TABLE {}_{}(channel, timestamp, fault_T, temperature, ref_temperature, pressure)".format(com, date))
 
     def open(self):
-        self.client = sqlite3.connect(self.url) #need parameter for DB?
+        self.client = sqlite3.connect(self.url)
 
     def close(self):
         if self.client is not None:

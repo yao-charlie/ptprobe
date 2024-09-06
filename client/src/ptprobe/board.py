@@ -151,7 +151,8 @@ class Controller:
         """Request a stop of the collection of samples."""
         self.user_halt = True
 
-    def collect_samples(self, max_samples=0):
+    # def collect_samples(self, max_samples=0):
+    def collect_samples(self, max_samples=0, port=False, queue=False):
         """Start the free-running collection of temperature and pressure samples
 
         :param max_samples: The maximum number of samples to collect. Set to zero
@@ -217,7 +218,8 @@ class Controller:
                         ref_temperature[ich] = struct.unpack('>f',val)[0]
                 
                 for sink in self.sinks:
-                    sink.write([timestamp, active_T, fault_T, temperature, ref_temperature, pressure])
+                    # sink.write([timestamp, active_T, fault_T, temperature, ref_temperature, pressure])
+                    sink.write([timestamp, active_T, fault_T, temperature, ref_temperature, pressure], port, queue)
         
             if self.user_halt:
                 ser.write(bytes("H","utf-8"))
