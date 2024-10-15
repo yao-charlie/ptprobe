@@ -21,7 +21,7 @@ class readTo():
         self.filename = filename
         self.ports = ports
 
-    def readToCSV(self, max_count, timeout, queue):
+    def readToCSV(self, max_count, timeout, queue=[]):
 
         (prefix, extension) = os.path.splitext(self.filename)  
 
