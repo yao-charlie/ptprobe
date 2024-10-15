@@ -2,6 +2,7 @@ import multiprocessing
 import logging
 import argparse
 import multi_read_to_csv
+import read_kx134_to_csv
 
 import dash
 from dash import dcc, html, ALL
@@ -46,6 +47,7 @@ sensor_data_columns = [ "Time",
                     ]
 # sensor_data = pd.read_csv(r"test.csv", header=None, names=sensor_data_columns)
 sensor_data = {}
+accel_sensor_data = {}
 
 #note that sensor data from file is actually delayed a few seconds. It is not instantaneous.
 
@@ -147,6 +149,17 @@ def update_intervals(interval):
         print(sensor_data[item])
     # print('end data')
 
+    # print(args)
+
+    for item in args.accelPorts:
+        # accel_sensor_data[item] = dictparser(accelQueueList[item].get())[item]
+    # sensor_data = dictparser(queueList[].get())["COM5"]
+        print("accel sensor data:")
+        # print(accel_sensor_data[item])
+        while accelQueueList[item].qsize:
+            print(accelQueueList[item].get())
+            # print(accelQueueList[item].qsize())
+
 
     # test = []
 
@@ -225,29 +238,48 @@ if __name__ == '__main__':
     logging.basicConfig(format=format, level=logging.INFO, datefmt="%H:%M:%S")
 
     parser = argparse.ArgumentParser(description='Read PTProbe sensors over serial')
+    # Not valuable:
     parser.add_argument('-m','--max-count', type=int, default=0,  
-            help='Maximum number of samples to record. Default 0 (no maximum)')
+            help='DEPRECATED. DO NOT USE as sampling rates between PT and accel are not the same.')
     parser.add_argument('-t','--timeout', type=int, default=0,  
             help='Collection time for sampling (s). Default is 0 (no timeout). The nominal sample rate is 5Hz.')
-    parser.add_argument('-p', '--ports', default='/dev/ttyACM0',  nargs='+',
-            help='Serial port name(s). Default is /dev/ttyACM0.')
+    parser.add_argument('-p', '--ports',  nargs='+',
+            help='Serial port name(s). No default.')
+    parser.add_argument('-a', '--accelPorts', nargs='+',
+            help='Serial port name(s) for accelerometers. No default')
     parser.add_argument('-f', '--filename', default='', help='Prefix filename for CSV file data output with extension as specified')
     args = parser.parse_args()
     logging.info("Starting demo")
     logging.info(args)
 
     queueList = {}
+    accelQueueList = {}
     process = {}
 
-    for item in args.ports:
-        queueList[item] = multiprocessing.Queue()
 
-    # with multiprocessing.Manager() as manager:
+    if args.ports:
+        for item in args.ports:
+            queueList[item] = multiprocessing.Queue()
 
-    for item in args.ports:
-        dataWriter = multi_read_to_csv.readTo(args.filename, [item])
-        process[item] = multiprocessing.Process(target = dataWriter.readToCSV, args = (args.max_count, args.timeout, queueList[item]))
-        process[item].start()
+        # with multiprocessing.Manager() as manager:
+
+        for item in args.ports:
+            dataWriter = multi_read_to_csv.readTo(args.filename, [item])
+            process[item] = multiprocessing.Process(target = dataWriter.readToCSV, args = (args.max_count, args.timeout, queueList[item]))
+            # process[item] = multiprocessing.Process(target = dataWriter.readToCSV, args = (args.timeout, queueList[item]))
+            process[item].start()
+
+    if args.accelPorts:
+        print("accelPorts Running")
+        for item in args.accelPorts:
+            accelQueueList[item] = multiprocessing.Queue()
+
+        for item in args.accelPorts:
+            dataWriterAccel = read_kx134_to_csv.readTo(args.filename+"-Accel", item)
+            process[item] = multiprocessing.Process(target = dataWriterAccel.readToCSV, args = (args.max_count, args.timeout, accelQueueList[item]))
+            # process[item] = multiprocessing.Process(target = dataWriterAccel.readToCSVAccel, args = (args.timeout, accelQueueList[item]))
+            process[item].start()
+
 
     # p1 = multiprocessing.Process( target= dataWriter.readToCSV, args = (args.max_count, args.timeout, queue))
     # p2 = dashboard
@@ -257,7 +289,7 @@ if __name__ == '__main__':
     # p_consumer.start()
     app.run_server(debug=True)
 
-    for item in args.ports:
+    for item in (args.ports+args.accelPorts):
         process[item].join()
 
     # p1.join()
