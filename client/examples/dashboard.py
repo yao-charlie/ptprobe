@@ -34,13 +34,12 @@ def dictparser(item):
     dict={}
     dict[item[0]] = item[1]
     return dict
+
+#possibly needed for platform specific behaviour from multiprocessing:
 # if platform.system() == 'Windows':
 #     multiprocessing.set_start_method('spawn')
 
 
-data = pd.read_csv("avocado.csv")
-data["Date"] = pd.to_datetime(data["Date"], format="%Y-%m-%d")
-# data.sort_values("Date", inplace=True)
 
 sensor_data_columns = [ "Time", 
                         "CH_0 Active T",    "CH_1 Active T",    "CH_2 Active T",    "CH_3 Active T",	
@@ -49,11 +48,10 @@ sensor_data_columns = [ "Time",
                         "CH_0 Ref Temp",	"CH_1 Ref Temp",	"CH_2 Ref Temp",	"CH_3 Ref Temp",
                         "CH_0 Pressure",	"CH_1 Pressure",	"CH_2 Pressure",	"CH_3 Pressure"
                     ]
-# sensor_data = pd.read_csv(r"test.csv", header=None, names=sensor_data_columns)
+
 sensor_data = {}
 accel_sensor_data = {}
 
-#note that sensor data from file is actually delayed a few seconds. It is not instantaneous.
 
 
 external_stylesheets = [
@@ -91,38 +89,12 @@ def serve_layout():
                 ),
                 html.Div(
                     children=[],
-                    # children=[
-                    #     html.Div([
-                    #         html.P(
-                    #             children="Motor RPM",
-                    #             className="menu-title"
-                    #         ),
-                    #         dcc.Graph(
-                    #             id="arb_gauge",                           
-                    #         ),
-                    #         ],
-                    #         className="card",
-                    #     ),
-                    # ],
                     id="gauge_list",
                     className="wrapper",
 
                 ),
                 html.Div(
                     children=[],
-                    # children=[
-                    #     html.Div([
-                    #         html.P(
-                    #             children="Motor RPM",
-                    #             className="menu-title"
-                    #         ),
-                    #         dcc.Graph(
-                    #             id="arb_gauge",                           
-                    #         ),
-                    #         ],
-                    #         className="card",
-                    #     ),
-                    # ],
                     id="graph_list",
                     className="wrapper",
 
@@ -130,28 +102,6 @@ def serve_layout():
             ]
         )
     )
-
-
-
-    # gauge_list = []
-    # for item in args.ports:
-    #     gauge_list.append(
-    #     html.Div(
-    #                 children=[
-    #                     html.Div([
-    #                         html.P(
-    #                             children=item,
-    #                             className="menu-title"
-    #                         ),
-    #                         dcc.Graph(
-    #                             id=item,                           
-    #                         ),
-    #                         ],
-    #                         className="card",
-    #                     ),
-    #                 ],
-    #                 className="wrapper",
-    #             ),)
 
 
 app.layout = serve_layout
@@ -168,7 +118,7 @@ app.layout = serve_layout
     
 )
 def update_intervals(interval):
-    # print(queue.qsize())
+
     if args.ports:
         for item in args.ports:
             sensor_data[item] = dictparser(queueList[item].get())[item]
@@ -176,23 +126,8 @@ def update_intervals(interval):
             if len(ptLog[item]) > logSamples:
                 ptLog[item].pop(0)
 
-
-        # sensor_data = dictparser(queueList[].get())["COM5"]
-        # print("sensor data:")
-            # print(sensor_data[item])
-        # print('end data')
-
-        # print(args)
-
     if args.accelPorts:
         for item in args.accelPorts:
-            # accel_sensor_data[item] = dictparser(accelQueueList[item].get())[item]
-        # sensor_data = dictparser(queueList[].get())["COM5"]
-            # print("accel sensor data:")
-            # print(accel_sensor_data[item])
-            # while accelQueueList[item].qsize:
-            # print(accelQueueList[item].qsize())
-            # print(accelQueueList[item].get())
             accel_sensor_data[item] = dictparser(accelQueueList[item].get())[item]
             numpyAccelData = np.array(accel_sensor_data[item])
             xfft = np.fft.fft(numpyAccelData[:,1])
@@ -204,35 +139,6 @@ def update_intervals(interval):
                 data=[go.Scatter(x=xfreq, y=xfft)]
             )
             dcc.Graph(figure = xfreqfigure)
-
-            # plt.plot(xfreq, xfft.real)
-            # plt.show()
-
-            # print(numpyAccelData)
-
-            # print(sensor_data[item])
-                
-                # print("before")
-                # print(accelQueueList[item].qsize())
-                # if not accelQueueList[item].qsize:
-                #     break
-                # print("after")
-                # print(accelQueueList[item].qsize())
-
-
-    
-
-    # arb_gauge_figure = go.Figure()
-    # print('figure tracing')
-    # arb_gauge_figure.add_trace(go.Indicator(
-    #     value = sensor_data[item][3][0],
-    #     # delta = {'reference': 160},
-    #     gauge = {'axis': {'visible': True}},
-    #     # gauge_axis_dtick=10, 
-    #     domain = {'x': [0, 1], 'y': [0, 1]},
-    #     # title = {'text': index},
-    #     mode = "gauge+number"
-    #     ))
 
     arb_gauge_figure_list = []
     arb_graph_figure_list = []
@@ -257,57 +163,15 @@ def update_intervals(interval):
             for i, sample in enumerate(ptLog[item]):
                 channelTemp.append(ptLog[item][i][temperature_set][channel])
 
-            # print(channelTemp)
             index_pt_figure = px.line(channelTemp, title="Port {}- Channel {}-Temp".format(item, channel))
-            # print('showing figure')
-            # index_pt_figure.show()
+
 
             arb_graph_figure_list.append(dcc.Graph(figure=index_pt_figure))
 
-            # index_gauge_figure = go.Figure(go.Indicator(
-            #     value = sensor_data[item][temperature_set][channel],
-            #     gauge = {'axis': {'visible': True}},
-            #     domain = {'x': [0, 1], 'y': [0, 1]},
-            #     mode = "gauge+number"
-            # ))
-            # arb_gauge_figure_list.append(dcc.Graph(figure=index_gauge_figure))
 
     print('figure call back return')
 
     return [arb_gauge_figure_list, arb_graph_figure_list]
-
-    # return html.Div(
-    #     # [arb_gauge_figure]
-    #     # [html.Div(f'{item}') for item in args.ports]
-    #     [test]
-    #     )
-    # print(arb_gauge_figure_list)
-
-
-
-    # return html.Div(
-    #             [((
-    #                 html.P(
-    #                     children=item,
-    #                     className="menu-title"
-    #                 ),
-    #                 dcc.Graph(
-    #                     id=item,                           
-    #                 )
-    #             ) for item in args.ports)],
-
-    #         className="card",
-    #         )
-
-# @app.callback(
-#     [
-#         Output("gauge_list", "figure"),
-#         ],
-#     Input("interval", "n_intervals")
-# )
-# def update_graphs(interval):
-#     for item in args.ports:
-#         sensor_data[item] = dictparser(queue)
 
 
 if __name__ == '__main__':
@@ -319,9 +183,11 @@ if __name__ == '__main__':
     logging.basicConfig(format=format, level=logging.INFO, datefmt="%H:%M:%S")
 
     parser = argparse.ArgumentParser(description='Read PTProbe sensors over serial')
+
     # Not valuable:
     parser.add_argument('-m','--max-count', type=int, default=0,  
             help='DEPRECATED. DO NOT USE as sampling rates between PT and accel are not the same.')
+    
     parser.add_argument('-t','--timeout', type=int, default=0,  
             help='Collection time for sampling (s). Default is 0 (no timeout). The nominal sample rate is 5Hz.')
     parser.add_argument('-p', '--ports',  nargs='+',
@@ -345,13 +211,9 @@ if __name__ == '__main__':
             queueList[item] = multiprocessing.Queue()
             ptLog[item] = []
 
-
-        # with multiprocessing.Manager() as manager:
-
         for item in args.ports:
             dataWriter = multi_read_to_csv.readTo(args.filename, [item])
             process[item] = multiprocessing.Process(target = dataWriter.readToCSV, args = (args.max_count, args.timeout, queueList[item]))
-            # process[item] = multiprocessing.Process(target = dataWriter.readToCSV, args = (args.timeout, queueList[item]))
             process[item].start()
 
     if args.accelPorts:
@@ -362,18 +224,9 @@ if __name__ == '__main__':
         for item in args.accelPorts:
             dataWriterAccel = read_kx134_to_csv.readTo(args.filename+"-Accel", item)
             process[item] = multiprocessing.Process(target = dataWriterAccel.readToCSV, args = (args.max_count, args.timeout, accelQueueList[item], args.accelRate))
-            # process[item] = multiprocessing.Process(target = dataWriterAccel.readToCSVAccel, args = (args.timeout, accelQueueList[item]))
             process[item].start()
 
 
-    # p1 = multiprocessing.Process( target= dataWriter.readToCSV, args = (args.max_count, args.timeout, queue))
-    # p2 = dashboard
-    # p1.start()
-
-    # p_consumer = multiprocessing.Process(target = consumer, args = (queue,))
-    # p_consumer.start()
-    # process["dashboard"] = multiprocessing.Process(target = app.run_server, kwargs = {"debug: True",})
-    # process["dashboard"].start()
     print("running server")
     app.run_server(debug=True)
 
@@ -383,6 +236,4 @@ if __name__ == '__main__':
 
     process["dashboard"].join()
 
-    # p1.join()
-    # p_consumer.join()
 
