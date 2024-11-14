@@ -16,7 +16,7 @@ class readTo():
         self.filename = filename
         self.port = port
 
-    def readToCSV(self, max_count, timeout, queue = None):
+    def readToCSV(self, max_count, timeout, queue = None, accelRate = 1.0):
 
         (prefix, extension) = os.path.splitext(self.filename)  
         
@@ -44,7 +44,7 @@ class readTo():
         mon = board.Controller(port=self.port, sinks=[csv])
 
         logging.info("Main: creating thread")
-        x = threading.Thread(target=mon.collect_samples, args=(max_count, self.port, queue))
+        x = threading.Thread(target=mon.collect_samples, args=(max_count, self.port, queue, accelRate))
         logging.info("Main: starting thread")
         x.start()
         
