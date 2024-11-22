@@ -229,7 +229,7 @@ if __name__ == '__main__':
     app.run(debug=False)
 
     print("joining processes")
-    for item in (int(args.ports or 0)+int(args.accelPorts or 0)):
+    for item in args.ports+args.accelPorts:
         process[item].join()
 
 
