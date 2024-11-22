@@ -17,11 +17,6 @@ from dash.dependencies import Output, Input
 
 import os
 import sys
-import serial
-import time
-
-import serial.tools.list_ports
-import ctypes
 
 def info(title):
     print(title)
@@ -74,27 +69,6 @@ ptLog = {}
 logTime = 100
 inter_interval=2000
 logSamples = logTime/inter_interval*1000
-
-def is_port_available(port_name):
-    available_ports = [port.device for port in serial.tools.list_ports.comports()]
-    return port_name in available_ports
-
-def reset_serial_port(port):
-    # if not is_port_available(port):
-    #     logging.error(f"Port {port} is not available.")
-    #     return
-    
-    time.sleep(1)
-
-    try:
-        ser = serial.Serial(port)
-        ser.close()
-        logging.info(f"Successfully reset port: {port}")
-    except Exception as e:
-        logging.error(f"Error on port {port}: {e}")
-        logging.error(f"Current process ID: {os.getpid()}")
-        logging.error(f"Potential locking process: {ctypes.WinError()}")
-
 
 
 def serve_layout():
@@ -232,7 +206,6 @@ if __name__ == '__main__':
 
     if args.ports:
         for item in args.ports:
-            # reset_serial_port(item)
             queueList[item] = multiprocessing.Queue()
             ptLog[item] = []
 
@@ -244,7 +217,6 @@ if __name__ == '__main__':
     if args.accelPorts:
         print("accelPorts Running")
         for item in args.accelPorts:
-            # reset_serial_port(item)
             accelQueueList[item] = multiprocessing.Queue()
 
         for item in args.accelPorts:
@@ -254,7 +226,7 @@ if __name__ == '__main__':
 
 
     print("running server")
-    app.run_server(debug=True)
+    app.run(debug=False)
 
     print("joining processes")
     for item in (int(args.ports or 0)+int(args.accelPorts or 0)):
