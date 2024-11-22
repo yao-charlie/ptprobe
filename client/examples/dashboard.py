@@ -176,9 +176,6 @@ def update_intervals(interval):
 
 if __name__ == '__main__':
 
-
-    queue = multiprocessing.Queue()
-
     format = "%(asctime)s: %(message)s"
     logging.basicConfig(format=format, level=logging.INFO, datefmt="%H:%M:%S")
 
@@ -234,6 +231,5 @@ if __name__ == '__main__':
     for item in (int(args.ports or 0)+int(args.accelPorts or 0)):
         process[item].join()
 
-    process["dashboard"].join()
 
 
