@@ -1,5 +1,5 @@
 import sys
-sys.path.append("C:/Users/charl/Github/accelmon/client/src/")
+sys.path.append("C:/Users/VFDControl/github/accelmon/client/src/")
 import os
 from datetime import datetime
 
@@ -44,43 +44,51 @@ class readTo():
         mon = board.Controller(port=self.port, sinks=[csv])
 
         logging.info("Main: creating thread")
-        x = threading.Thread(target=mon.collect_samples, args=(max_count, self.port, queue, accelRate))
-        logging.info("Main: starting thread")
-        x.start()
-        
-        t = threading.Timer(timeout, mon.stop_collection)
-        if timeout > 0:
-            t.start()
 
-        heartbeat = 0
-        while x.is_alive():
-            heartbeat += 1
-            logging.info("..{}".format(heartbeat))
-            time.sleep(1.)
+        try:
 
-        # here either the timer expired and called halt or we processed 
-        # max_steps messages and exited
-        logging.info("Main: cancel timer")
-        t.cancel()
-        logging.info("Main: calling join")
-        x.join()
-        logging.info("Main: closing sink")
-        csv.close()
-        logging.info("Main: done")
+            x = threading.Thread(target=mon.collect_samples, args=(max_count, self.port, queue, accelRate))
+            logging.info("Main: starting thread")
+            x.start()
+            
+            t = threading.Timer(timeout, mon.stop_collection)
+            if timeout > 0:
+                t.start()
 
-        n_samples = mon.sample_count() 
-        n_dropped = mon.dropped_count()
+            heartbeat = 0
+            while x.is_alive():
+                heartbeat += 1
+                logging.info("..{}".format(heartbeat))
+                time.sleep(1.)
 
-        print(f"Collected {n_samples} samples with {n_dropped} dropped")
+        except(KeyboardInterrupt, SystemExit):
+            print("Keyboard Interrupted")
+            mon.stop_collection()
 
-        T_n = mon.T_N()
-        T_mean_us = mon.T_mean()
-        T_stddev_us = math.sqrt(mon.T_variance())
-        T_max_us = mon.T_max()
-        T_min_us = mon.T_min()
+        finally:
+            # here either the timer expired and called halt or we processed 
+            # max_steps messages and exited
+            logging.info("Main: cancel timer")
+            t.cancel()
+            logging.info("Main: calling join")
+            x.join()
+            logging.info("Main: closing sink")
+            csv.close()
+            logging.info("Main: done")
 
-        print(f"Timing T_avg={T_mean_us:.3g}us, std. dev {T_stddev_us:.3g} us")
-        print(f"T_max={T_max_us:.3g}us, T_min={T_min_us:.3g}us, n={T_n}")
+            n_samples = mon.sample_count() 
+            n_dropped = mon.dropped_count()
+
+            print(f"Collected {n_samples} samples with {n_dropped} dropped")
+
+            T_n = mon.T_N()
+            T_mean_us = mon.T_mean()
+            T_stddev_us = math.sqrt(mon.T_variance())
+            T_max_us = mon.T_max()
+            T_min_us = mon.T_min()
+
+            print(f"Timing T_avg={T_mean_us:.3g}us, std. dev {T_stddev_us:.3g} us")
+            print(f"T_max={T_max_us:.3g}us, T_min={T_min_us:.3g}us, n={T_n}")
 
 
 
@@ -95,7 +103,7 @@ if __name__ == "__main__":
             help='Collection time for sampling (s). Default is 0 (no timeout)')
     parser.add_argument('-p', '--port', default='/dev/ttyACM0',  
             help='Serial port name. Default is /dev/ttyACM0.')
-    parser.add_argument('filename', help='CSV file for data output, appended with port and timestamp')
+    parser.add_argument('-f', '--filename', default='', help='CSV file for data output, appended with port and timestamp')
     args = parser.parse_args()
 
     logging.info("Starting demo")
