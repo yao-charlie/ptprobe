@@ -145,8 +145,7 @@ def update_intervals(interval):
     arb_graph_figure_list = []
 
     temperature_set = 3
-    channel = 0
-    print('figure call back')
+    pressure_set = 4
 
     for item in args.ports:
         for channel in range(4):
@@ -164,13 +163,22 @@ def update_intervals(interval):
             for i, sample in enumerate(ptLog[item]):
                 channelTemp.append(ptLog[item][i][temperature_set][channel])
 
-            index_pt_figure = px.line(channelTemp, title="Port {}- Channel {}-Temp".format(item, channel))
+            index_temp_figure = px.line(channelTemp, title="Port {}- Channel {}-Temp".format(item, channel))
 
 
-            arb_graph_figure_list.append(dcc.Graph(figure=index_pt_figure))
+            arb_graph_figure_list.append(dcc.Graph(figure=index_temp_figure))
 
 
-    print('figure call back return')
+        #TODO: refactor to function taking in parameter, returning list of figures:
+        for channel in range(4):
+            channelPressure = []
+            for i, sample in enumerate(ptLog[item]):
+                channelPressure.append(ptLog[item][i][pressure_set][channel])
+
+            index_pressure_figure = px.line(channelTemp, title="Port {}- Channel {}-Pressure".format(item, channel))
+
+
+            arb_graph_figure_list.append(dcc.Graph(figure=index_pressure_figure))
 
     return [arb_gauge_figure_list, arb_graph_figure_list]
 
