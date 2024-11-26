@@ -6,7 +6,6 @@ import read_kx134_to_csv
 
 import dash
 from dash import dcc, html, ALL
-import pandas as pd
 import numpy as np
 from scipy import signal
 import matplotlib.pyplot as plt
