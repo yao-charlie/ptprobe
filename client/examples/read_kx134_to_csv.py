@@ -62,7 +62,7 @@ class readTo():
                 time.sleep(1.)
 
         except(KeyboardInterrupt, SystemExit):
-            print("Keyboard Interrupted")
+            logging.info("Keyboard Interrupted")
             mon.stop_collection()
 
         finally:
@@ -89,6 +89,7 @@ class readTo():
 
             print(f"Timing T_avg={T_mean_us:.3g}us, std. dev {T_stddev_us:.3g} us")
             print(f"T_max={T_max_us:.3g}us, T_min={T_min_us:.3g}us, n={T_n}")
+            print('Accel Method Done')
 
 
 

@@ -82,6 +82,7 @@ class readTo():
                 
 
             logging.info("Main: done")
+            print("PT method done")
 
 
 if __name__ == "__main__":
