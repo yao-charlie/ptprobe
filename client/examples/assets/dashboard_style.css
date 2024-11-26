@@ -9,3 +9,7 @@
     flex: 1 1 calc(25% - 20px); 
     min-width: 200px; 
 }
+.psdGraph {
+    flex: 1 1 calc(33% - 20px); 
+    min-width: 200px; 
+}
