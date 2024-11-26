@@ -90,12 +90,6 @@ def serve_layout():
                 ),
                 html.Div(
                     children=[],
-                    id="gauge_list",
-                    className="wrapper",
-
-                ),
-                html.Div(
-                    children=[],
                     id="graph_list",
                     className="wrapper",
 
@@ -108,9 +102,6 @@ def serve_layout():
 app.layout = serve_layout
 
 @app.callback(
-    [
-    Output("gauge_list", "children"),
-        ],
     [
     Output("graph_list", "children"),
         ],
@@ -148,15 +139,6 @@ def update_intervals(interval):
     pressure_set = 4
 
     for item in args.ports:
-        for channel in range(4):
-            index_gauge_figure = go.Figure(go.Indicator(
-                value = sensor_data[item][temperature_set][channel],
-                gauge = {'axis': {'visible': True}},
-                domain = {'x': [0, 1], 'y': [0, 1]},
-                mode = "gauge+number"
-            ))
-            arb_gauge_figure_list.append(dcc.Graph(figure=index_gauge_figure))
-
 
         for channel in range(4):
             channelTemp = []
@@ -165,8 +147,7 @@ def update_intervals(interval):
 
             index_temp_figure = px.line(channelTemp, title="Port {}- Channel {}-Temp".format(item, channel))
 
-
-            arb_graph_figure_list.append(dcc.Graph(figure=index_temp_figure))
+            arb_graph_figure_list.append(dcc.Graph(figure=index_temp_figure, className="graph"))
 
 
         #TODO: refactor to function taking in parameter, returning list of figures:
@@ -175,12 +156,11 @@ def update_intervals(interval):
             for i, sample in enumerate(ptLog[item]):
                 channelPressure.append(ptLog[item][i][pressure_set][channel])
 
-            index_pressure_figure = px.line(channelTemp, title="Port {}- Channel {}-Pressure".format(item, channel))
+            index_pressure_figure = px.line(channelPressure, title="Port {}- Channel {}-Pressure".format(item, channel))
 
+            arb_graph_figure_list.append(dcc.Graph(figure=index_pressure_figure, className="graph"))
 
-            arb_graph_figure_list.append(dcc.Graph(figure=index_pressure_figure))
-
-    return [arb_gauge_figure_list, arb_graph_figure_list]
+    return [arb_graph_figure_list]
 
 
 if __name__ == '__main__':
