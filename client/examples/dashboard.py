@@ -229,6 +229,7 @@ if __name__ == '__main__':
 
 
     print("running server")
+    # app.run(debug=False, host='192.168.1.217', port='7591')
     app.run(debug=False)
 
     print("joining processes")
