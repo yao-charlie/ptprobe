@@ -111,6 +111,13 @@ app.layout = serve_layout
 )
 def update_intervals(interval):
 
+    arb_graph_figure_list = []
+    temperature_set = 3
+    pressure_set = 5
+
+
+
+
     if args.ports:
         for item in args.ports:
             sensor_data[item] = dictparser(queueList[item].get())[item]
@@ -122,21 +129,29 @@ def update_intervals(interval):
         for item in args.accelPorts:
             accel_sensor_data[item] = dictparser(accelQueueList[item].get())[item]
             numpyAccelData = np.array(accel_sensor_data[item])
-            xfft = np.fft.fft(numpyAccelData[:,1])
-            xfreq = np.fft.fftfreq(numpyAccelData[:,1].shape[-1])
 
-            xspdf, xspd = signal.periodogram(xfft, )
+            # xfft = fft.fft(numpyAccelData[:,1])
+            # xfreq = fft.fftfreq(numpyAccelData[:,1].shape[-1])
 
-            xfreqfigure = go.Figure(
-                data=[go.Scatter(x=xfreq, y=xfft)]
+            # # FFT:
+            # xfreqfigure = go.Figure(
+            #     data=[go.Scatter(x=xfreq, y=xfft)]
+            # )
+            # arb_graph_figure_list.append(dcc.Graph(figure=xfreqfigure))
+
+            #PSD:
+            uSecondsToSeconds = 1000000
+            samplingFreq = uSecondsToSeconds/np.average(numpyAccelData[:,0])
+            xspdf, xspd = signal.periodogram(numpyAccelData[:,1], samplingFreq)
+
+            xspdfFigure = go.Figure(
+                data = [go.Scatter(x=xspdf, y=xspd), ],
+                layout_yaxis_range=[0,10],
+                layout_title="PSD Port {}".format(item),
+                layout_xaxis_labelalias = "test"
             )
-            dcc.Graph(figure = xfreqfigure)
+            arb_graph_figure_list.append(dcc.Graph(figure=xspdfFigure))
 
-    arb_gauge_figure_list = []
-    arb_graph_figure_list = []
-
-    temperature_set = 3
-    pressure_set = 4
 
     for item in args.ports:
 
