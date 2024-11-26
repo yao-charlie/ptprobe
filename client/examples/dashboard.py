@@ -113,9 +113,12 @@ def update_intervals(interval):
     arb_graph_figure_list = []
     temperature_set = 3
     pressure_set = 5
-
-
-
+    uSecondsToSeconds = 1000000
+    dimDict = {
+                    0:'x',
+                    1:'y',
+                    2:'z'
+                }
 
     if args.ports:
         for item in args.ports:
@@ -139,17 +142,19 @@ def update_intervals(interval):
             # arb_graph_figure_list.append(dcc.Graph(figure=xfreqfigure))
 
             #PSD:
-            uSecondsToSeconds = 1000000
+            
             samplingFreq = uSecondsToSeconds/np.average(numpyAccelData[:,0])
-            xspdf, xspd = signal.periodogram(numpyAccelData[:,1], samplingFreq)
 
-            xspdfFigure = go.Figure(
-                data = [go.Scatter(x=xspdf, y=xspd), ],
-                layout_yaxis_range=[0,10],
-                layout_title="PSD Port {}".format(item),
-                layout_xaxis_labelalias = "test"
-            )
-            arb_graph_figure_list.append(dcc.Graph(figure=xspdfFigure))
+            for dimension in range(3):
+                dim_spdf, dim_spd = signal.periodogram(numpyAccelData[:,dimension+1], samplingFreq)
+
+                dim_spdfFigure = go.Figure(
+                    data = [go.Scatter(x=dim_spdf, y=dim_spd), ],
+                    layout_yaxis_range=[0,10],
+                    layout_title="PSD Port {}, {}".format(item, dimDict[dimension]),
+                    layout_xaxis_labelalias = "test"
+                )
+                arb_graph_figure_list.append(dcc.Graph(figure=dim_spdfFigure, className="psdGraph"))
 
 
     for item in args.ports:
