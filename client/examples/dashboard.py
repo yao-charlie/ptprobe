@@ -66,7 +66,7 @@ app.title = "Prototype Sensors"
 
 ptLog = {}
 logTime = 100
-inter_interval=2000
+inter_interval=2000 # in milliseconds (>1000 as component updates can't occur faster)
 logSamples = logTime/inter_interval*1000
 
 
@@ -76,7 +76,7 @@ def serve_layout():
             children=[
                 dcc.Interval(
                     id='interval',
-                    interval=inter_interval, # in milliseconds (>1000 as component updates can't occur faster)
+                    interval=inter_interval, 
                     n_intervals=0
                 ),
                 html.Div(
@@ -146,6 +146,7 @@ def update_intervals(interval):
             samplingFreq = uSecondsToSeconds/np.average(numpyAccelData[:,0])
 
             for dimension in range(3):
+                #TODO: check if should be dimension+2?
                 dim_spdf, dim_spd = signal.periodogram(numpyAccelData[:,dimension+1], samplingFreq)
 
                 dim_spdfFigure = go.Figure(
