@@ -9,6 +9,7 @@ import time
 if __name__ == "__main__":
     
     ai_coeffs = [-97.35308, 920.6867, -14.86687]
+    # ai_coeffs = [0 ,1, 0]
 
     parser = argparse.ArgumentParser(description='Set default board configuration')
     parser.add_argument('-p', '--port', default='/dev/ttyACM0',  
